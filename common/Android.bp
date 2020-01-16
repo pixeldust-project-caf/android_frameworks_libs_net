@@ -12,9 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// File group "net-utils-framework-common-srcs" is also compiled into android framework.
-// Add jarjar rules here so that anything outside of framework could use this library
-// directly.
+// 1. The "net-utils-framework-common" library is also compiled into the framework and placed on the
+//    boot classpath. It uses jarjar rules so that anything outside the framework can use this
+//    library directly.
+// 2. The "net-utils-services-common" library is for use by modules and frameworks/base/services.
+//    It does not need to be jarjared because it is not placed on the bootclasspath.
+// 3. The "net-utils-telephony-common-srcs" filegroup is for use specifically by telephony, which
+//    places many of its classes, even non-API service classes, on the boot classpath. Any file that
+//    is added to this filegroup *must* have a corresponding jarjar rule in the telephony jarjar
+//    rules file. Otherwise, it will end up on the boot classpath and other modules will not be able
+//    to provide their own copy.
 
 filegroup {
     name: "net-utils-framework-common-srcs",
@@ -24,7 +31,13 @@ filegroup {
 
 java_library {
     name: "net-utils-framework-common",
-    srcs: [":net-utils-framework-common-srcs" ],
+    srcs: [
+        ":net-utils-framework-common-srcs",
+        // TODO: avoid including all framework annotations as they end up in library users jars
+        // and need jarjaring
+        ":framework-annotations",
+    ],
+    sdk_version: "system_current",
     jarjar_rules: "jarjar-rules-shared.txt",
     visibility: [
         "//frameworks/base/packages/Tethering",
@@ -34,4 +47,34 @@ java_library {
         "//packages/modules/NetworkStack",
         "//packages/modules/CaptivePortalLogin",
     ]
+}
+
+java_library {
+    name: "net-utils-services-common",
+    srcs: [
+        "src_servicescommon/**/*.java",
+        ":framework-annotations",
+    ],
+    sdk_version: "system_current",
+    visibility: [
+        "//frameworks/base/services/net",
+        "//frameworks/base/packages/Tethering",
+        "//frameworks/opt/net/wifi/service",
+        "//frameworks/opt/net/ike",
+        "//packages/modules/NetworkStack",
+        "//packages/modules/CaptivePortalLogin",
+    ],
+}
+
+// Use a filegroup and not a library for telephony sources, as framework-annotations cannot be
+// included either (some annotations would be duplicated on the bootclasspath).
+filegroup {
+    name: "net-utils-telephony-common-srcs",
+    srcs: [
+        // Any class here *must* have a corresponding jarjar rule in the telephony build rules.
+        "src_servicescommon/android/net/NetworkFactory.java",
+    ],
+    visibility: [
+        "//frameworks/opt/telephony",
+    ],
 }
