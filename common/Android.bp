@@ -73,6 +73,7 @@ java_library {
   host_supported: true,
   visibility: [
       "//frameworks/libs/net/common/tests:__subpackages__",
+      "//frameworks/libs/net/client-libs/tests:__subpackages__",
   ],
   static_libs: [
       "kotlin-test"
@@ -162,6 +163,7 @@ java_library {
         ":framework-annotations",
     ],
     sdk_version: "system_current",
+    min_sdk_version: "30",
     visibility: [
         "//frameworks/base/services/net",
     ],
