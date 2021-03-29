@@ -26,6 +26,7 @@ import java.util.function.Predicate;
 
 /**
  * Utilities for {@link Collection} and arrays.
+ * @hide
  */
 public final class CollectionUtils {
     private CollectionUtils() {}
@@ -35,6 +36,13 @@ public final class CollectionUtils {
      */
     public static <T> boolean isEmpty(@Nullable T[] array) {
         return array == null || array.length == 0;
+    }
+
+    /**
+     * @return True if the collection is null or 0-length.
+     */
+    public static <T> boolean isEmpty(@Nullable Collection<T> collection) {
+        return collection == null || collection.isEmpty();
     }
 
     /**
