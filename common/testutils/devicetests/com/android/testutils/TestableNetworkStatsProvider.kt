@@ -23,13 +23,19 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 private const val DEFAULT_TIMEOUT_MS = 200L
+const val TOKEN_ANY = -1
 
 open class TestableNetworkStatsProvider(
     val defaultTimeoutMs: Long = DEFAULT_TIMEOUT_MS
 ) : NetworkStatsProvider() {
     sealed class CallbackType {
         data class OnRequestStatsUpdate(val token: Int) : CallbackType()
-        data class OnSetLimit(val iface: String?, val quotaBytes: Long) : CallbackType()
+        data class OnSetWarningAndLimit(
+            val iface: String?,
+            val warningBytes: Long,
+            val limitBytes: Long
+        ) : CallbackType()
+        data class OnSetLimit(val iface: String?, val limitBytes: Long) : CallbackType()
         data class OnSetAlert(val quotaBytes: Long) : CallbackType()
     }
 
@@ -41,6 +47,10 @@ open class TestableNetworkStatsProvider(
         history.add(CallbackType.OnRequestStatsUpdate(token))
     }
 
+    override fun onSetWarningAndLimit(iface: String, warningBytes: Long, limitBytes: Long) {
+        history.add(CallbackType.OnSetWarningAndLimit(iface, warningBytes, limitBytes))
+    }
+
     override fun onSetLimit(iface: String, quotaBytes: Long) {
         history.add(CallbackType.OnSetLimit(iface, quotaBytes))
     }
@@ -49,8 +59,13 @@ open class TestableNetworkStatsProvider(
         history.add(CallbackType.OnSetAlert(quotaBytes))
     }
 
-    fun expectOnRequestStatsUpdate(token: Int, timeout: Long = defaultTimeoutMs) {
-        assertEquals(CallbackType.OnRequestStatsUpdate(token), history.poll(timeout))
+    fun expectOnRequestStatsUpdate(token: Int, timeout: Long = defaultTimeoutMs): Int {
+        val event = history.poll(timeout)
+        assertTrue(event is CallbackType.OnRequestStatsUpdate)
+        if (token != TOKEN_ANY) {
+            assertEquals(token, event.token)
+        }
+        return event.token
     }
 
     fun expectOnSetLimit(iface: String?, quotaBytes: Long, timeout: Long = defaultTimeoutMs) {
