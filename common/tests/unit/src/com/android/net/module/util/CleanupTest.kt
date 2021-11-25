@@ -18,13 +18,13 @@ package com.android.net.module.util
 
 import android.util.Log
 import com.android.testutils.tryTest
-import kotlin.test.assertFailsWith
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
-import kotlin.test.fail
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
-private val TAG = CleanupTest::class.toString()
+private val TAG = CleanupTest::class.simpleName
 
 @RunWith(JUnit4::class)
 class CleanupTest {
@@ -38,65 +38,65 @@ class CleanupTest {
             x = 2
             Log.e(TAG, "Do nothing")
         } cleanup {
-            assert(x == 2)
+            assertTrue(x == 2)
             x = 3
             Log.e(TAG, "Do nothing")
         }
-        assert(x == 3)
+        assertTrue(x == 3)
     }
 
     @Test
     fun testThrowTry() {
         var x = 1
-        assertFailsWith<TestException1> {
+        val thrown = assertFailsWith<TestException1> {
             tryTest {
                 x = 2
                 throw TestException1()
                 x = 4
             } cleanup {
-                assert(x == 2)
+                assertTrue(x == 2)
                 x = 3
                 Log.e(TAG, "Do nothing")
             }
         }
-        assert(x == 3)
+        assertTrue(thrown.suppressedExceptions.isEmpty())
+        assertTrue(x == 3)
     }
 
     @Test
     fun testThrowCleanup() {
         var x = 1
-        assertFailsWith<TestException2> {
+        val thrown = assertFailsWith<TestException2> {
             tryTest {
                 x = 2
                 Log.e(TAG, "Do nothing")
             } cleanup {
-                assert(x == 2)
+                assertTrue(x == 2)
                 x = 3
                 throw TestException2()
                 x = 4
             }
         }
-        assert(x == 3)
+        assertTrue(thrown.suppressedExceptions.isEmpty())
+        assertTrue(x == 3)
     }
 
     @Test
     fun testThrowBoth() {
         var x = 1
-        try {
+        val thrown = assertFailsWith<TestException1> {
             tryTest {
                 x = 2
                 throw TestException1()
                 x = 3
             } cleanup {
-                assert(x == 2)
+                assertTrue(x == 2)
                 x = 4
                 throw TestException2()
                 x = 5
             }
-            fail("Expected failure with TestException1")
-        } catch (e: TestException1) {
-            assert(e.suppressedExceptions[0] is TestException2)
         }
-        assert(x == 4)
+        assertTrue(thrown.suppressedExceptions[0] is TestException2)
+        assertTrue(x == 4)
     }
 }

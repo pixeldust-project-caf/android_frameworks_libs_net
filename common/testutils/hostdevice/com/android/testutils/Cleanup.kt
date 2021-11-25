@@ -63,7 +63,6 @@ class ExceptionCleanupBlock(val originalException: Exception?) {
     inline infix fun cleanup(block: () -> Unit) {
         try {
             block()
-            if (null != originalException) throw originalException
         } catch (e: Exception) {
             if (null == originalException) {
                 throw e
@@ -72,11 +71,12 @@ class ExceptionCleanupBlock(val originalException: Exception?) {
                 throw originalException
             }
         }
+        if (null != originalException) throw originalException
     }
 }
 
 @CheckReturnValue
-inline fun tryTest(block: () -> Unit): ExceptionCleanupBlock {
+fun tryTest(block: () -> Unit): ExceptionCleanupBlock {
     try {
         block()
     } catch (e: Exception) {
