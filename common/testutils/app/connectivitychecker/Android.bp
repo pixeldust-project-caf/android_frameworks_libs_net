@@ -16,27 +16,18 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-cc_library_headers {
-    name: "bpf_syscall_wrappers",
-    vendor_available: false,
-    host_supported: false,
-    native_bridge_supported: true,
-    export_include_dirs: ["include"],
-    cflags: [
-        "-Wall",
-        "-Werror",
+android_test_helper_app {
+    name: "ConnectivityChecker",
+    srcs: ["src/**/*.kt"],
+    sdk_version: "system_current",
+    // Allow running the test on any device with SDK Q+, even when built from a branch that uses
+    // an unstable SDK, by targeting a stable SDK regardless of the build SDK.
+    min_sdk_version: "29",
+    target_sdk_version: "30",
+    static_libs: [
+        "androidx.test.rules",
+        "modules-utils-build_system",
+        "net-tests-utils",
     ],
-    sdk_version: "30",
-    min_sdk_version: "30",
-    apex_available: [
-        "//apex_available:platform",
-        "com.android.tethering",
-    ],
-    visibility: [
-        "//frameworks/libs/net/common/native/bpfmapjni",
-        "//packages/modules/Connectivity/service",
-        "//packages/modules/Connectivity/Tethering",
-        "//system/bpf/libbpf_android",
-        "//system/memory/lmkd",
-    ],
+    host_required: ["net-tests-utils-host-common"],
 }
