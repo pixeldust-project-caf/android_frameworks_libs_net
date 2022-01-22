@@ -19,7 +19,16 @@
 package com.android.testutils
 
 import com.android.testutils.ExceptionUtils.ThrowingRunnable
+import com.android.testutils.ExceptionUtils.ThrowingSupplier
 import javax.annotation.CheckReturnValue
+
+@CheckReturnValue
+fun <T> tryTest(block: () -> T) = TryExpr(
+        try {
+            Result.success(block())
+        } catch (e: Throwable) {
+            Result.failure(e)
+        })
 
 /**
  * Utility to do cleanup in tests without replacing exceptions with those from a finally block.
@@ -51,6 +60,12 @@ import javax.annotation.CheckReturnValue
  * } cleanup {
  *   cleanup code
  * }
+ * Catch blocks can be added with the following syntax :
+ * tryTest {
+ *   testing code
+ * }.catch<ExceptionType> { it ->
+ *   do something to it
+ * }
  *
  * Java doesn't allow this kind of syntax, so instead a function taking 2 lambdas is provided.
  * testAndCleanup(() -> {
@@ -59,12 +74,26 @@ import javax.annotation.CheckReturnValue
  *   cleanup code
  * });
  */
-class ExceptionCleanupBlock(val originalException: Exception?) {
-    inline infix fun cleanup(block: () -> Unit) {
+
+// Some downstream branches have an older kotlin that doesn't know about value classes.
+// TODO : Change this to "value class" when aosp no longer merges into such branches.
+@Suppress("INLINE_CLASS_DEPRECATED")
+inline class TryExpr<T>(val result: Result<T>) {
+    inline infix fun <reified E : Throwable> catch(block: (E) -> T): TryExpr<T> {
+        val originalException = result.exceptionOrNull()
+        if (originalException !is E) return this
+        return TryExpr(try {
+            Result.success(block(originalException))
+        } catch (e: Exception) {
+            Result.failure(e)
+        })
+    }
+
+    inline infix fun cleanup(block: () -> Unit): T {
         try {
             block()
-            if (null != originalException) throw originalException
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            val originalException = result.exceptionOrNull()
             if (null == originalException) {
                 throw e
             } else {
@@ -72,24 +101,18 @@ class ExceptionCleanupBlock(val originalException: Exception?) {
                 throw originalException
             }
         }
+        return result.getOrThrow()
     }
-}
-
-@CheckReturnValue
-inline fun tryTest(block: () -> Unit): ExceptionCleanupBlock {
-    try {
-        block()
-    } catch (e: Exception) {
-        return ExceptionCleanupBlock(e)
-    }
-    return ExceptionCleanupBlock(null)
 }
 
 // Java support
-fun testAndCleanup(tryBlock: ThrowingRunnable, cleanupBlock: ThrowingRunnable) {
-    tryTest {
-        tryBlock.run()
+fun <T> testAndCleanup(tryBlock: ThrowingSupplier<T>, cleanupBlock: ThrowingRunnable): T {
+    return tryTest {
+        tryBlock.get()
     } cleanup {
         cleanupBlock.run()
     }
+}
+fun testAndCleanup(tryBlock: ThrowingRunnable, cleanupBlock: ThrowingRunnable) {
+    return testAndCleanup(ThrowingSupplier { tryBlock.run() }, cleanupBlock)
 }
