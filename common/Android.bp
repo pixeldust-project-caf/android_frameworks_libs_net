@@ -139,6 +139,7 @@ java_library {
     srcs: [
         "device/com/android/net/module/util/HexDump.java",
         "device/com/android/net/module/util/Ipv6Utils.java",
+        "device/com/android/net/module/util/PacketBuilder.java",
         "device/com/android/net/module/util/Struct.java",
         "device/com/android/net/module/util/structs/*.java",
     ],
@@ -332,32 +333,4 @@ filegroup {
         "//frameworks/opt/net/wifi/service",
         "//packages/modules/Wifi/service",
     ],
-}
-
-// This file group is deprecated; new users should use net-utils-annotations
-filegroup {
-    name: "net-utils-annotations-srcs",
-    srcs: [
-        "annotations/android/net/annotations/PolicyDirection.java",
-    ],
-    visibility: [
-        "//frameworks/base",
-    ],
-}
-
-
-java_library {
-    name: "net-utils-annotations",
-    srcs: [":net-utils-annotations-srcs"],
-    libs: [
-        "framework-annotations-lib",
-    ],
-    sdk_version: "system_current",
-    min_sdk_version: "30",
-    visibility: ["//visibility:public"],
-    apex_available: [
-        "//apex_available:anyapex",
-        "//apex_available:platform",
-    ],
-    lint: { strict_updatability_linting: true },
 }
