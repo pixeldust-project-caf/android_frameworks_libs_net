@@ -70,6 +70,7 @@ java_library {
       "androidx.annotation_annotation",
       "framework-annotations-lib",
   ],
+  lint: { strict_updatability_linting: true },
 }
 
 java_defaults {
@@ -83,6 +84,19 @@ java_defaults {
     ],
 }
 
+java_library {
+    name: "net-utils-dnspacket-common",
+    srcs: [
+    "framework/**/DnsPacket.java",
+    "framework/**/DnsPacketUtils.java",
+    ],
+    sdk_version: "module_current",
+    visibility: [
+        "//packages/services/Iwlan:__subpackages__",
+    ],
+    libs: ["framework-annotations-lib"],
+}
+
 filegroup {
     name: "net-utils-framework-common-srcs",
     srcs: ["framework/**/*.java"],
@@ -90,7 +104,6 @@ filegroup {
     visibility: [
         "//frameworks/base",
         "//packages/modules/Connectivity:__subpackages__",
-        "//frameworks/base/packages/Connectivity/framework",
     ],
 }
 
@@ -99,6 +112,7 @@ java_library {
     srcs: [
         "device/com/android/net/module/util/BpfMap.java",
         "device/com/android/net/module/util/JniUtil.java",
+        "device/com/android/net/module/util/TcUtils.java",
     ],
     sdk_version: "system_current",
     min_sdk_version: "29",
@@ -118,6 +132,7 @@ java_library {
         "com.android.tethering",
         "//apex_available:platform",
     ],
+    lint: { strict_updatability_linting: true },
 }
 
 java_library {
@@ -125,6 +140,7 @@ java_library {
     srcs: [
         "device/com/android/net/module/util/HexDump.java",
         "device/com/android/net/module/util/Ipv6Utils.java",
+        "device/com/android/net/module/util/PacketBuilder.java",
         "device/com/android/net/module/util/Struct.java",
         "device/com/android/net/module/util/structs/*.java",
     ],
@@ -145,6 +161,7 @@ java_library {
         "com.android.tethering",
         "//apex_available:platform",
     ],
+    lint: { strict_updatability_linting: true },
 }
 
 java_library {
@@ -169,6 +186,7 @@ java_library {
         "com.android.tethering",
         "//apex_available:platform",
     ],
+    lint: { strict_updatability_linting: true },
 }
 
 java_library {
@@ -199,6 +217,7 @@ java_library {
         "com.android.tethering",
         "//apex_available:platform",
     ],
+    lint: { strict_updatability_linting: true },
 }
 
 java_library {
@@ -229,6 +248,7 @@ java_library {
         "//frameworks/libs/net/common/device",
         "//packages/modules/Wifi/framework/tests:__subpackages__",
     ],
+    lint: { strict_updatability_linting: true },
 }
 filegroup {
     name: "net-utils-services-common-srcs",
@@ -259,7 +279,9 @@ java_library {
     ],
     visibility: [
         "//frameworks/base/services/net",
+        "//packages/modules/Connectivity/tests:__subpackages__",
     ],
+    lint: { strict_updatability_linting: true },
 }
 
 // Use a filegroup and not a library for telephony sources, as framework-annotations cannot be

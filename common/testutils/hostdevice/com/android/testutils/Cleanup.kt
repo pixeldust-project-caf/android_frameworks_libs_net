@@ -19,6 +19,7 @@
 package com.android.testutils
 
 import com.android.testutils.ExceptionUtils.ThrowingRunnable
+import com.android.testutils.ExceptionUtils.ThrowingSupplier
 import javax.annotation.CheckReturnValue
 
 /**
@@ -45,51 +46,80 @@ import javax.annotation.CheckReturnValue
  * to the standard try{}finally{}, if both throws, the construct throws the exception that happened
  * in tryTest{} rather than the one that happened in cleanup{}.
  *
- * Kotlin usage is as try{}finally{} :
+ * Kotlin usage is as try{}finally{}, but with multiple finally{} blocks :
  * tryTest {
  *   testing code
+ * } cleanupStep {
+ *   cleanup code 1
+ * } cleanupStep {
+ *   cleanup code 2
  * } cleanup {
- *   cleanup code
+ *   cleanup code 3
+ * }
+ * Catch blocks can be added with the following syntax :
+ * tryTest {
+ *   testing code
+ * }.catch<ExceptionType> { it ->
+ *   do something to it
  * }
  *
- * Java doesn't allow this kind of syntax, so instead a function taking 2 lambdas is provided.
+ * Java doesn't allow this kind of syntax, so instead a function taking lambdas is provided.
  * testAndCleanup(() -> {
  *   testing code
  * }, () -> {
- *   cleanup code
+ *   cleanup code 1
+ * }, () -> {
+ *   cleanup code 2
  * });
  */
-class ExceptionCleanupBlock(val originalException: Exception?) {
-    inline infix fun cleanup(block: () -> Unit) {
-        try {
-            block()
-            if (null != originalException) throw originalException
-        } catch (e: Exception) {
-            if (null == originalException) {
-                throw e
-            } else {
-                originalException.addSuppressed(e)
-                throw originalException
-            }
-        }
-    }
-}
 
 @CheckReturnValue
-inline fun tryTest(block: () -> Unit): ExceptionCleanupBlock {
-    try {
-        block()
-    } catch (e: Exception) {
-        return ExceptionCleanupBlock(e)
+fun <T> tryTest(block: () -> T) = TryExpr(
+        try {
+            Result.success(block())
+        } catch (e: Throwable) {
+            Result.failure(e)
+        })
+
+// Some downstream branches have an older kotlin that doesn't know about value classes.
+// TODO : Change this to "value class" when aosp no longer merges into such branches.
+@Suppress("INLINE_CLASS_DEPRECATED")
+inline class TryExpr<T>(val result: Result<T>) {
+    inline infix fun <reified E : Throwable> catch(block: (E) -> T): TryExpr<T> {
+        val originalException = result.exceptionOrNull()
+        if (originalException !is E) return this
+        return TryExpr(try {
+            Result.success(block(originalException))
+        } catch (e: Exception) {
+            Result.failure(e)
+        })
     }
-    return ExceptionCleanupBlock(null)
+
+    @CheckReturnValue
+    inline infix fun cleanupStep(block: () -> Unit): TryExpr<T> {
+        try {
+            block()
+        } catch (e: Throwable) {
+            val originalException = result.exceptionOrNull()
+            return TryExpr(if (null == originalException) {
+                Result.failure(e)
+            } else {
+                originalException.addSuppressed(e)
+                Result.failure(originalException)
+            })
+        }
+        return this
+    }
+
+    inline infix fun cleanup(block: () -> Unit): T = cleanupStep(block).result.getOrThrow()
 }
 
 // Java support
-fun testAndCleanup(tryBlock: ThrowingRunnable, cleanupBlock: ThrowingRunnable) {
-    tryTest {
-        tryBlock.run()
-    } cleanup {
-        cleanupBlock.run()
-    }
+fun <T> testAndCleanup(tryBlock: ThrowingSupplier<T>, vararg cleanupBlock: ThrowingRunnable): T {
+    return cleanupBlock.fold(tryTest { tryBlock.get() }) { previousExpr, nextCleanup ->
+        previousExpr.cleanupStep { nextCleanup.run() }
+    }.cleanup {}
+}
+fun testAndCleanup(tryBlock: ThrowingRunnable, vararg cleanupBlock: ThrowingRunnable) {
+    return testAndCleanup(ThrowingSupplier { tryBlock.run() }, *cleanupBlock)
 }

@@ -21,11 +21,10 @@ java_library {
     sdk_version: "system_current",
     min_sdk_version: "29",
     static_libs: [
-        "netd_aidl_interface-V7-java",
+        "netd_aidl_interface-V8-java",
     ],
     apex_available: [
         "//apex_available:platform", // used from services.net
-        "com.android.bluetooth.updatable",
         "com.android.tethering",
         "com.android.wifi",
     ],
@@ -45,10 +44,11 @@ cc_library_static {
 cc_library_static {
     name: "netd_aidl_interface-lateststable-ndk",
     whole_static_libs: [
-        "netd_aidl_interface-V7-ndk",
+        "netd_aidl_interface-V8-ndk",
     ],
     apex_available: [
         "com.android.resolv",
+        "com.android.tethering",
     ],
     min_sdk_version: "29",
 }
@@ -56,7 +56,7 @@ cc_library_static {
 cc_library_static {
     name: "netd_aidl_interface-lateststable-cpp",
     whole_static_libs: [
-        "netd_aidl_interface-V7-cpp",
+        "netd_aidl_interface-V8-cpp",
     ],
 }
 
@@ -89,7 +89,6 @@ aidl_interface {
             // either outside the system server or use jarjar to rename the generated AIDL classes.
             apex_available: [
                 "//apex_available:platform", // used from services.net
-                "com.android.bluetooth.updatable",
                 "com.android.tethering",
                 "com.android.wifi",
             ],
@@ -99,6 +98,7 @@ aidl_interface {
         ndk: {
             apex_available: [
                 "//apex_available:platform",
+                "com.android.tethering",
             ],
             // This is necessary for the DnsResovler tests to run in Android Q.
             // Soong would recognize this value and produce the Q compatible aidl library.
@@ -113,6 +113,7 @@ aidl_interface {
         "5",
         "6",
         "7",
+        "8",
     ],
 }
 
@@ -125,7 +126,6 @@ java_library {
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth.updatable",
         "com.android.wifi",
         "com.android.tethering",
     ],
@@ -149,7 +149,6 @@ aidl_interface {
         java: {
             apex_available: [
                 "//apex_available:platform",
-                "com.android.bluetooth.updatable",
                 "com.android.wifi",
                 "com.android.tethering",
             ],

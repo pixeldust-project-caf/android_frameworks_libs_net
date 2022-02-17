@@ -16,13 +16,18 @@
 
 package com.android.net.module.util;
 
+import static android.Manifest.permission.ACCESS_NETWORK_STATE;
+import static android.Manifest.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS;
 import static android.Manifest.permission.NETWORK_STACK;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.net.NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.Context;
+import android.os.Binder;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -79,5 +84,64 @@ public final class PermissionUtils {
         permissions.add(NETWORK_STACK);
         permissions.add(PERMISSION_MAINLINE_NETWORK_STACK);
         enforceAnyPermissionOf(context, permissions.toArray(new String[0]));
+    }
+
+    /**
+     * If the CONNECTIVITY_USE_RESTRICTED_NETWORKS is not allowed for a particular process, throw a
+     * {@link SecurityException}.
+     *
+     * @param context {@link android.content.Context} for the process.
+     * @param message A message to include in the exception if it is thrown.
+     */
+    public static void enforceRestrictedNetworkPermission(
+            final @NonNull Context context, final @Nullable String message) {
+        context.enforceCallingOrSelfPermission(CONNECTIVITY_USE_RESTRICTED_NETWORKS, message);
+    }
+
+    /**
+     * If the ACCESS_NETWORK_STATE is not allowed for a particular process, throw a
+     * {@link SecurityException}.
+     *
+     * @param context {@link android.content.Context} for the process.
+     * @param message A message to include in the exception if it is thrown.
+     */
+    public static void enforceAccessNetworkStatePermission(
+            final @NonNull Context context, final @Nullable String message) {
+        context.enforceCallingOrSelfPermission(ACCESS_NETWORK_STATE, message);
+    }
+
+    /**
+     * Return true if the context has DUMP permission.
+     */
+    public static boolean checkDumpPermission(Context context, String tag, PrintWriter pw) {
+        if (context.checkCallingOrSelfPermission(android.Manifest.permission.DUMP)
+                != PERMISSION_GRANTED) {
+            pw.println("Permission Denial: can't dump " + tag + " from from pid="
+                    + Binder.getCallingPid() + ", uid=" + Binder.getCallingUid()
+                    + " due to missing android.permission.DUMP permission");
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    /**
+     * Enforce that a given feature is available and if not, throw an
+     * {@link UnsupportedOperationException}.
+     *
+     * @param context {@link android.content.Context} for the process.
+     * @param feature the feature name to enforce.
+     * @param errorMessage an optional error message to include.
+     */
+    public static void enforceSystemFeature(final @NonNull Context context,
+            final @NonNull String feature, final @Nullable String errorMessage) {
+        final boolean hasSystemFeature =
+                context.getPackageManager().hasSystemFeature(feature);
+        if (!hasSystemFeature) {
+            if (null == errorMessage) {
+                throw new UnsupportedOperationException();
+            }
+            throw new UnsupportedOperationException(errorMessage);
+        }
     }
 }
