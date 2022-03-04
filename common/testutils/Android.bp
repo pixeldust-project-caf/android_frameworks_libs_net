@@ -31,6 +31,7 @@ java_library {
     ],
     static_libs: [
         "androidx.test.ext.junit",
+        "compatibility-device-util-axt",
         "kotlin-reflect",
         "libnanohttpd",
         "net-tests-utils-host-device-common",
@@ -79,6 +80,6 @@ java_test_host {
         "host/**/*.kt",
     ],
     libs: ["tradefed"],
-    test_suites: ["device-tests", "general-tests", "cts", "mts"],
+    test_suites: ["device-tests", "general-tests", "cts", "mts-networking"],
     data: [":ConnectivityChecker"],
 }

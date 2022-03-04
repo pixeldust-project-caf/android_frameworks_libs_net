@@ -111,7 +111,10 @@ java_library {
     name: "net-utils-device-common-bpf",
     srcs: [
         "device/com/android/net/module/util/BpfMap.java",
+        "device/com/android/net/module/util/HexDump.java",
+        "device/com/android/net/module/util/IBpfMap.java",
         "device/com/android/net/module/util/JniUtil.java",
+        "device/com/android/net/module/util/Struct.java",
         "device/com/android/net/module/util/TcUtils.java",
     ],
     sdk_version: "system_current",
@@ -121,9 +124,7 @@ java_library {
         "//frameworks/libs/net/common/testutils:__subpackages__",
         "//packages/modules/Connectivity:__subpackages__",
         "//packages/modules/NetworkStack:__subpackages__",
-    ],
-    static_libs: [
-        "net-utils-device-common-struct",
+        "//frameworks/base/services/core",
     ],
     libs: [
         "androidx.annotation_annotation",
@@ -247,6 +248,7 @@ java_library {
         "//frameworks/libs/net/common/tests:__subpackages__",
         "//frameworks/libs/net/common/device",
         "//packages/modules/Wifi/framework/tests:__subpackages__",
+        "//packages/apps/Settings",
     ],
     lint: { strict_updatability_linting: true },
 }
@@ -278,6 +280,7 @@ java_library {
         "framework-connectivity",
     ],
     visibility: [
+        // TODO: remove after NetworkStatsService moves to the module.
         "//frameworks/base/services/net",
         "//packages/modules/Connectivity/tests:__subpackages__",
     ],
