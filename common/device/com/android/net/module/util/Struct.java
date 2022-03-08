@@ -518,7 +518,8 @@ public class Struct {
     private static FieldInfo[] getClassFieldInfo(final Class clazz) {
         if (!isStructSubclass(clazz)) {
             throw new IllegalArgumentException(clazz.getName() + " is not a subclass of "
-                    + Struct.class.getName());
+                    + Struct.class.getName() + ", its superclass is "
+                    + clazz.getSuperclass().getName());
         }
 
         final FieldInfo[] cachedAnnotationFields = sFieldCache.get(clazz);
@@ -729,6 +730,16 @@ public class Struct {
             if (i != fieldInfos.length - 1) sb.append(", ");
         }
         return sb.toString();
+    }
+
+    /** A simple Struct which only contains a u8 field. */
+    public static class U8 extends Struct {
+        @Struct.Field(order = 0, type = Struct.Type.U8)
+        public final short val;
+
+        public U8(final short val) {
+            this.val = val;
+        }
     }
 
     public static class U32 extends Struct {
