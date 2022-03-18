@@ -112,6 +112,7 @@ java_library {
     srcs: [
         "device/com/android/net/module/util/BpfBitmap.java",
         "device/com/android/net/module/util/BpfMap.java",
+        "device/com/android/net/module/util/BpfUtils.java",
         "device/com/android/net/module/util/HexDump.java",
         "device/com/android/net/module/util/IBpfMap.java",
         "device/com/android/net/module/util/JniUtil.java",
@@ -286,9 +287,15 @@ java_library {
         "framework-annotations-lib",
         "framework-connectivity",
     ],
+    // TODO: remove "apex_available:platform".
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.tethering",
+    ],
     visibility: [
         // TODO: remove after NetworkStatsService moves to the module.
         "//frameworks/base/services/net",
+        "//packages/modules/Connectivity/service",
         "//packages/modules/Connectivity/tests:__subpackages__",
         "//packages/modules/Bluetooth/android/app",
     ],
