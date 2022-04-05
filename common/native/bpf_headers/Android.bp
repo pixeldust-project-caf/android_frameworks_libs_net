@@ -18,7 +18,7 @@ package {
 
 cc_library_headers {
     name: "bpf_headers",
-    vendor_available: false,
+    vendor_available: true,
     host_supported: true,
     native_bridge_supported: true,
     header_libs: ["bpf_syscall_wrappers"],
@@ -35,29 +35,6 @@ cc_library_headers {
         "com.android.tethering",
         "com.android.art.debug",
     ],
-    visibility: [
-        "//bootable/libbootloader/vts",
-        "//cts/tests/tests/net/native",
-        "//frameworks/base/services/core/jni",
-        "//frameworks/native/libs/cputimeinstate",
-        "//frameworks/native/services/gpuservice",
-        "//frameworks/native/services/gpuservice/gpumem",
-        "//frameworks/native/services/gpuservice/tests/unittests",
-        "//frameworks/native/services/gpuservice/tracing",
-        "//packages/modules/Connectivity/bpf_progs",
-        "//packages/modules/Connectivity/netd",
-        "//packages/modules/Connectivity/service/native",
-        "//packages/modules/Connectivity/service/native/libs/libclat",
-        "//packages/modules/Connectivity/tests/unit/jni",
-        "//packages/modules/DnsResolver/tests",
-        "//system/bpf/bpfloader",
-        "//system/bpf/libbpf_android",
-        "//system/memory/libmeminfo",
-        "//system/netd/server",
-        "//system/netd/tests",
-        "//system/netd/tests/benchmarks",
-        "//test/vts-testcase/kernel/api/bpf_native_test",
-    ],
 }
 
 
@@ -73,9 +50,9 @@ cc_test {
         "-Werror",
         "-Wno-error=unused-variable",
     ],
+    header_libs: ["bpf_headers"],
     static_libs: ["libgmock"],
     shared_libs: [
-        "libbpf_android",
         "libbase",
         "liblog",
         "libutils",

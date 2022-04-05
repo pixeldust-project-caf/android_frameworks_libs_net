@@ -110,12 +110,15 @@ filegroup {
 java_library {
     name: "net-utils-device-common-bpf",
     srcs: [
+        "device/com/android/net/module/util/BpfBitmap.java",
         "device/com/android/net/module/util/BpfMap.java",
+        "device/com/android/net/module/util/BpfUtils.java",
         "device/com/android/net/module/util/HexDump.java",
         "device/com/android/net/module/util/IBpfMap.java",
         "device/com/android/net/module/util/JniUtil.java",
         "device/com/android/net/module/util/Struct.java",
         "device/com/android/net/module/util/TcUtils.java",
+        "device/com/android/net/module/util/bpf/*.java",
     ],
     sdk_version: "module_current",
     min_sdk_version: "29",
@@ -233,7 +236,7 @@ java_library {
     libs: [
         "framework-annotations-lib",
         "framework-connectivity.stubs.module_lib",
-        "framework-connectivity-tiramisu.stubs.module_lib",
+        "framework-connectivity-t.stubs.module_lib",
     ],
     jarjar_rules: "jarjar-rules-shared.txt",
     visibility: [
@@ -284,9 +287,15 @@ java_library {
         "framework-annotations-lib",
         "framework-connectivity",
     ],
+    // TODO: remove "apex_available:platform".
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.tethering",
+    ],
     visibility: [
         // TODO: remove after NetworkStatsService moves to the module.
         "//frameworks/base/services/net",
+        "//packages/modules/Connectivity/service",
         "//packages/modules/Connectivity/tests:__subpackages__",
         "//packages/modules/Bluetooth/android/app",
     ],

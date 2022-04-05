@@ -41,6 +41,7 @@ import kotlin.test.fail
 
 object NULL_NETWORK : Network(-1)
 object ANY_NETWORK : Network(-2)
+fun anyNetwork() = ANY_NETWORK
 
 private val Int.capabilityName get() = NetworkCapabilities.capabilityNameOf(this)
 
@@ -287,7 +288,7 @@ open class TestableNetworkCallback private constructor(
     fun expectAvailableCallbacks(
         net: Network,
         suspended: Boolean = false,
-        validated: Boolean = true,
+        validated: Boolean? = true,
         blocked: Boolean = false,
         tmt: Long = defaultTimeoutMs
     ) {
@@ -309,14 +310,18 @@ open class TestableNetworkCallback private constructor(
     private fun expectAvailableCallbacksCommon(
         net: Network,
         suspended: Boolean,
-        validated: Boolean,
+        validated: Boolean?,
         tmt: Long
     ) {
         expectCallback<Available>(net, tmt)
         if (suspended) {
             expectCallback<Suspended>(net, tmt)
         }
-        expectCapabilitiesThat(net, tmt) { validated == it.hasCapability(NET_CAPABILITY_VALIDATED) }
+        expectCapabilitiesThat(net, tmt) {
+            validated == null || validated == it.hasCapability(
+                NET_CAPABILITY_VALIDATED
+            )
+        }
         expectCallback<LinkPropertiesChanged>(net, tmt)
     }
 
@@ -385,7 +390,7 @@ open class TestableNetworkCallback private constructor(
         val network = n ?: NULL_NETWORK
         // TODO : remove this .java access if the tests ever use kotlin-reflect. At the time of
         // this writing this would be the only use of this library in the tests.
-        assertTrue(type.java.isInstance(it) && it.network == network,
+        assertTrue(type.java.isInstance(it) && (ANY_NETWORK === n || it.network == network),
                 "Unexpected callback : $it, expected ${type.java} with Network[$network]")
     } as T
 
