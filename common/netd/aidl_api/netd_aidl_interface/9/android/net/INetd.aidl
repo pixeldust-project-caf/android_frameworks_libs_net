@@ -181,7 +181,6 @@ interface INetd {
   const int PENALTY_POLICY_ACCEPT = 1;
   const int PENALTY_POLICY_LOG = 2;
   const int PENALTY_POLICY_REJECT = 3;
-  const int CLAT_MARK = -559038041;
   const int LOCAL_NET_ID = 99;
   const int DUMMY_NET_ID = 51;
   const int UNREACHABLE_NET_ID = 52;
