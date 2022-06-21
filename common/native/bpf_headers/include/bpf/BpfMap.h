@@ -49,16 +49,20 @@ class BpfMap {
   protected:
     // flag must be within BPF_OBJ_FLAG_MASK, ie. 0, BPF_F_RDONLY, BPF_F_WRONLY
     BpfMap<Key, Value>(const char* pathname, uint32_t flags) {
-        int map_fd = mapRetrieve(pathname, flags);
-        if (map_fd >= 0) mMapFd.reset(map_fd);
+        mMapFd.reset(mapRetrieve(pathname, flags));
+        if (mMapFd < 0) abort();
+        if (isAtLeastKernelVersion(4, 14, 0)) {
+            if (bpfGetFdKeySize(mMapFd) != sizeof(Key)) abort();
+            if (bpfGetFdValueSize(mMapFd) != sizeof(Value)) abort();
+        }
     }
 
   public:
     explicit BpfMap<Key, Value>(const char* pathname) : BpfMap<Key, Value>(pathname, 0) {}
 
     BpfMap<Key, Value>(bpf_map_type map_type, uint32_t max_entries, uint32_t map_flags = 0) {
-        int map_fd = createMap(map_type, sizeof(Key), sizeof(Value), max_entries, map_flags);
-        if (map_fd >= 0) mMapFd.reset(map_fd);
+        mMapFd.reset(createMap(map_type, sizeof(Key), sizeof(Value), max_entries, map_flags));
+        if (mMapFd < 0) abort();
     }
 
     base::Result<Key> getFirstKey() const {
@@ -99,15 +103,38 @@ class BpfMap {
         return {};
     }
 
+  protected:
+    [[clang::reinitializes]] base::Result<void> init(const char* path, int fd) {
+        mMapFd.reset(fd);
+        if (mMapFd == -1) {
+            return ErrnoErrorf("Pinned map not accessible or does not exist: ({})", path);
+        }
+        if (isAtLeastKernelVersion(4, 14, 0)) {
+            // Normally we should return an error here instead of calling abort,
+            // but this cannot happen at runtime without a massive code bug (K/V type mismatch)
+            // and as such it's better to just blow the system up and let the developer fix it.
+            // Crashes are much more likely to be noticed than logs and missing functionality.
+            if (bpfGetFdKeySize(mMapFd) != sizeof(Key)) abort();
+            if (bpfGetFdValueSize(mMapFd) != sizeof(Value)) abort();
+        }
+        return {};
+    }
+
+  public:
     // Function that tries to get map from a pinned path.
-    base::Result<void> init(const char* path);
+    [[clang::reinitializes]] base::Result<void> init(const char* path) {
+        return init(path, mapRetrieveRW(path));
+    }
+
 
 #ifdef TEST_BPF_MAP
     // due to Android SELinux limitations which prevent map creation by anyone besides the bpfloader
     // this should only ever be used by test code, it is equivalent to:
     //   .reset(createMap(type, keysize, valuesize, max_entries, map_flags)
     // TODO: derive map_flags from BpfMap vs BpfMapRO
-    base::Result<void> resetMap(bpf_map_type map_type, uint32_t max_entries, uint32_t map_flags = 0) {
+    [[clang::reinitializes]] base::Result<void> resetMap(bpf_map_type map_type,
+                                                         uint32_t max_entries,
+                                                         uint32_t map_flags = 0) {
         int map_fd = createMap(map_type, sizeof(Key), sizeof(Value), max_entries, map_flags);
         if (map_fd < 0) {
              auto err = ErrnoErrorf("Unable to create map.");
@@ -152,14 +179,23 @@ class BpfMap {
 
     // Move assignment operator
     BpfMap<Key, Value>& operator=(BpfMap<Key, Value>&& other) noexcept {
-        mMapFd = std::move(other.mMapFd);
-        other.reset(-1);
+        if (this != &other) {
+            mMapFd = std::move(other.mMapFd);
+            other.reset();
+        }
         return *this;
     }
 
     void reset(base::unique_fd fd) = delete;
 
-    void reset(int fd) { mMapFd.reset(fd); }
+    [[clang::reinitializes]] void reset(int fd = -1) {
+        mMapFd.reset(fd);
+        if ((fd >= 0) && isAtLeastKernelVersion(4, 14, 0)) {
+            if (bpfGetFdKeySize(mMapFd) != sizeof(Key)) abort();
+            if (bpfGetFdValueSize(mMapFd) != sizeof(Value)) abort();
+            if (bpfGetFdMapFlags(mMapFd) != 0) abort(); // TODO: fix for BpfMapRO
+        }
+    }
 
     bool isValid() const { return mMapFd != -1; }
 
@@ -193,15 +229,6 @@ class BpfMap {
   private:
     base::unique_fd mMapFd;
 };
-
-template <class Key, class Value>
-base::Result<void> BpfMap<Key, Value>::init(const char* path) {
-    mMapFd.reset(mapRetrieveRW(path));
-    if (mMapFd == -1) {
-        return ErrnoErrorf("Pinned map not accessible or does not exist: ({})", path);
-    }
-    return {};
-}
 
 template <class Key, class Value>
 base::Result<void> BpfMap<Key, Value>::iterate(
@@ -269,8 +296,15 @@ base::Result<void> BpfMap<Key, Value>::iterateWithValue(
 template <class Key, class Value>
 class BpfMapRO : public BpfMap<Key, Value> {
   public:
+    BpfMapRO<Key, Value>() {};
+
     explicit BpfMapRO<Key, Value>(const char* pathname)
         : BpfMap<Key, Value>(pathname, BPF_F_RDONLY) {}
+
+    // Function that tries to get map from a pinned path.
+    [[clang::reinitializes]] base::Result<void> init(const char* path) {
+        return BpfMap<Key,Value>::init(path, mapRetrieveRO(path));
+    }
 };
 
 }  // namespace bpf
