@@ -19,6 +19,17 @@
  *                                                                            *
  ******************************************************************************/
 
+// The actual versions of the bpfloader that shipped in various Android releases
+
+// Android P/Q/R: BpfLoader was initially part of netd,
+// this was later split out into a standalone binary, but was unversioned.
+
+// Android S / 12 (api level 31) - added 'tethering' mainline eBPF support
+#define BPFLOADER_S_VERSION 2u
+
+// Android T / 13 Beta 3 (api level 33) - added support for 'netd_shared'
+#define BPFLOADER_T_BETA3_VERSION 13u
+
 /* For mainline module use, you can #define BPFLOADER_{MIN/MAX}_VER
  * before #include "bpf_helpers.h" to change which bpfloaders will
  * process the resulting .o file.
@@ -177,6 +188,8 @@ static int (*bpf_trace_printk)(const char* fmt, int fmt_size, ...) = (void*) BPF
 static unsigned long long (*bpf_get_current_pid_tgid)(void) = (void*) BPF_FUNC_get_current_pid_tgid;
 static unsigned long long (*bpf_get_current_uid_gid)(void) = (void*) BPF_FUNC_get_current_uid_gid;
 static unsigned long long (*bpf_get_smp_processor_id)(void) = (void*) BPF_FUNC_get_smp_processor_id;
+static long (*bpf_get_stackid)(void* ctx, void* map, uint64_t flags) = (void*) BPF_FUNC_get_stackid;
+static long (*bpf_get_current_comm)(void* buf, uint32_t buf_size) = (void*) BPF_FUNC_get_current_comm;
 
 #define DEFINE_BPF_PROG_KVER_RANGE_OPT(SECTION_NAME, prog_uid, prog_gid, the_prog, min_kv, max_kv, \
                                        opt)                                                        \

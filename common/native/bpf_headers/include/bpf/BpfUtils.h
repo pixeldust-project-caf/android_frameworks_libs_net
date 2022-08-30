@@ -60,6 +60,9 @@ static inline int synchronizeKernelRCU() {
     // This is a temporary hack for network stats map swap on devices running
     // 4.9 kernels. The kernel code of socket release on pf_key socket will
     // explicitly call synchronize_rcu() which is exactly what we need.
+    //
+    // Linux 4.14/4.19/5.4/5.10/5.15 (and 5.18) still have this same behaviour.
+    // see net/key/af_key.c: pfkey_release() -> synchronize_rcu()
     int pfSocket = socket(AF_KEY, SOCK_RAW | SOCK_CLOEXEC, PF_KEY_V2);
 
     if (pfSocket < 0) {
@@ -92,20 +95,20 @@ static inline int setrlimitForTest() {
 
 #define KVER(a, b, c) (((a) << 24) + ((b) << 16) + (c))
 
-static inline unsigned kernelVersion() {
+static inline unsigned uncachedKernelVersion() {
     struct utsname buf;
-    int ret = uname(&buf);
-    if (ret) return 0;
+    if (uname(&buf)) return 0;
 
-    unsigned kver_major;
-    unsigned kver_minor;
-    unsigned kver_sub;
-    char unused;
-    ret = sscanf(buf.release, "%u.%u.%u%c", &kver_major, &kver_minor, &kver_sub, &unused);
-    // Check the device kernel version
-    if (ret < 3) return 0;
-
+    unsigned kver_major = 0;
+    unsigned kver_minor = 0;
+    unsigned kver_sub = 0;
+    (void)sscanf(buf.release, "%u.%u.%u", &kver_major, &kver_minor, &kver_sub);
     return KVER(kver_major, kver_minor, kver_sub);
+}
+
+static inline unsigned kernelVersion() {
+    static unsigned kver = uncachedKernelVersion();
+    return kver;
 }
 
 static inline bool isAtLeastKernelVersion(unsigned major, unsigned minor, unsigned sub) {
