@@ -46,9 +46,10 @@
  *
  * While this will work outside of mainline too, there just is no point to
  * using it when the .o and the bpfloader ship in sync with each other.
+ * In which case it's just best to use the default.
  */
 #ifndef BPFLOADER_MIN_VER
-#define BPFLOADER_MIN_VER DEFAULT_BPFLOADER_MIN_VER
+#define BPFLOADER_MIN_VER COMPILE_FOR_BPFLOADER_VERSION
 #endif
 
 #ifndef BPFLOADER_MAX_VER
@@ -192,8 +193,8 @@ static int (*bpf_map_delete_elem_unsafe)(const struct bpf_map_def* map,
 
 #ifndef DEFAULT_BPF_MAP_UID
 #define DEFAULT_BPF_MAP_UID AID_ROOT
-#elif BPFLOADER_MIN_VER < 21u
-#error "Bpf Map UID must be left at default of AID_ROOT for BpfLoader prior to v0.21"
+#elif BPFLOADER_MIN_VER < 28u
+#error "Bpf Map UID must be left at default of AID_ROOT for BpfLoader prior to v0.28"
 #endif
 
 #define DEFINE_BPF_MAP_UGM(the_map, TYPE, KeyType, ValueType, num_entries, usr, grp, md) \
