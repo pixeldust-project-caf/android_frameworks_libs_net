@@ -18,10 +18,13 @@ package com.android.net.module.util
 
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
+import com.android.testutils.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
@@ -47,6 +50,21 @@ class CollectionUtilsTest {
         assertEquals(1, CollectionUtils.indexOf(listOf("AA", "BBB", "CCCC")) { it.length >= 3 })
         assertEquals(1, CollectionUtils.indexOf(listOf("AA", null, "CCCC")) { it == null })
         assertEquals(1, CollectionUtils.indexOf(listOf(null, "CCCC")) { it != null })
+    }
+
+    @Test
+    fun testIndexOfSubArray() {
+        val haystack = byteArrayOf(1, 2, 3, 4, 5)
+        assertEquals(2, CollectionUtils.indexOfSubArray(haystack, byteArrayOf(3, 4)))
+        assertEquals(3, CollectionUtils.indexOfSubArray(haystack, byteArrayOf(4, 5)))
+        assertEquals(4, CollectionUtils.indexOfSubArray(haystack, byteArrayOf(5)))
+        assertEquals(-1, CollectionUtils.indexOfSubArray(haystack, byteArrayOf(3, 2)))
+        assertEquals(0, CollectionUtils.indexOfSubArray(haystack, byteArrayOf()))
+        assertEquals(-1, CollectionUtils.indexOfSubArray(byteArrayOf(), byteArrayOf(3, 2)))
+        assertEquals(0, CollectionUtils.indexOfSubArray(byteArrayOf(), byteArrayOf()))
+        assertThrows(NullPointerException::class.java) {
+            CollectionUtils.indexOfSubArray(haystack, null)
+        }
     }
 
     @Test
@@ -85,5 +103,28 @@ class CollectionUtilsTest {
         assertEquals(10, CollectionUtils.total(longArrayOf(1, 3, 6)))
         assertEquals(3, CollectionUtils.total(longArrayOf(1, 1, 1)))
         assertEquals(0, CollectionUtils.total(null))
+    }
+
+    @Test
+    fun testFindFirstFindLast() {
+        val listAE = listOf("A", "B", "C", "D", "E")
+        assertSame(CollectionUtils.findFirst(listAE) { it == "A" }, listAE[0])
+        assertSame(CollectionUtils.findFirst(listAE) { it == "B" }, listAE[1])
+        assertSame(CollectionUtils.findFirst(listAE) { it == "E" }, listAE[4])
+        assertNull(CollectionUtils.findFirst(listAE) { it == "F" })
+        assertSame(CollectionUtils.findLast(listAE) { it == "A" }, listAE[0])
+        assertSame(CollectionUtils.findLast(listAE) { it == "B" }, listAE[1])
+        assertSame(CollectionUtils.findLast(listAE) { it == "E" }, listAE[4])
+        assertNull(CollectionUtils.findLast(listAE) { it == "F" })
+
+        val listMulti = listOf("A", "B", "A", "C", "D", "E", "A", "E")
+        assertSame(CollectionUtils.findFirst(listMulti) { it == "A" }, listMulti[0])
+        assertSame(CollectionUtils.findFirst(listMulti) { it == "B" }, listMulti[1])
+        assertSame(CollectionUtils.findFirst(listMulti) { it == "E" }, listMulti[5])
+        assertNull(CollectionUtils.findFirst(listMulti) { it == "F" })
+        assertSame(CollectionUtils.findLast(listMulti) { it == "A" }, listMulti[6])
+        assertSame(CollectionUtils.findLast(listMulti) { it == "B" }, listMulti[1])
+        assertSame(CollectionUtils.findLast(listMulti) { it == "E" }, listMulti[7])
+        assertNull(CollectionUtils.findLast(listMulti) { it == "F" })
     }
 }
