@@ -111,6 +111,7 @@ java_library {
     name: "net-utils-device-common-bpf",
     srcs: [
         "device/com/android/net/module/util/BpfBitmap.java",
+        "device/com/android/net/module/util/BpfDump.java",
         "device/com/android/net/module/util/BpfMap.java",
         "device/com/android/net/module/util/BpfUtils.java",
         "device/com/android/net/module/util/HexDump.java",
@@ -118,7 +119,6 @@ java_library {
         "device/com/android/net/module/util/JniUtil.java",
         "device/com/android/net/module/util/Struct.java",
         "device/com/android/net/module/util/TcUtils.java",
-        "device/com/android/net/module/util/bpf/*.java",
     ],
     sdk_version: "module_current",
     min_sdk_version: "29",
@@ -127,7 +127,6 @@ java_library {
         "//frameworks/libs/net/common/testutils:__subpackages__",
         "//packages/modules/Connectivity:__subpackages__",
         "//packages/modules/NetworkStack:__subpackages__",
-        "//frameworks/base/services/core",
     ],
     libs: [
         "androidx.annotation_annotation",
@@ -233,7 +232,9 @@ java_library {
         ":net-utils-framework-common-srcs",
     ],
     sdk_version: "module_current",
+    min_sdk_version: "29",
     libs: [
+        "androidx.annotation_annotation",
         "framework-annotations-lib",
         "framework-connectivity.stubs.module_lib",
         "framework-connectivity-t.stubs.module_lib",
@@ -260,23 +261,14 @@ java_library {
     ],
     lint: { strict_updatability_linting: true },
 }
-filegroup {
-    name: "net-utils-services-common-srcs",
+
+java_library {
+    name: "net-utils-services-common",
     srcs: [
         "device/android/net/NetworkFactory.java",
         "device/android/net/NetworkFactoryImpl.java",
         "device/android/net/NetworkFactoryLegacyImpl.java",
         "device/android/net/NetworkFactoryShim.java",
-    ],
-    visibility: [
-        "//frameworks/base/services/net",
-    ],
-}
-
-java_library {
-    name: "net-utils-services-common",
-    srcs: [
-        ":net-utils-services-common-srcs",
     ],
     sdk_version: "module_current",
     min_sdk_version: "30",
@@ -292,6 +284,7 @@ java_library {
         "//apex_available:platform",
         "com.android.bluetooth",
         "com.android.tethering",
+        "com.android.wifi",
     ],
     visibility: [
         // TODO: remove after NetworkStatsService moves to the module.
@@ -299,6 +292,7 @@ java_library {
         "//packages/modules/Connectivity/service",
         "//packages/modules/Connectivity/tests:__subpackages__",
         "//packages/modules/Bluetooth/android/app",
+        "//packages/modules/Wifi/service:__subpackages__",
     ],
     lint: { strict_updatability_linting: true },
 }
