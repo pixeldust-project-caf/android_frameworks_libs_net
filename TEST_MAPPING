@@ -15,6 +15,9 @@
     },
     {
       "path": "packages/modules/Wifi/framework"
+    },
+    {
+      "path": "vendor/xts/gts-tests/hostsidetests/networkstack"
     }
   ]
 }
