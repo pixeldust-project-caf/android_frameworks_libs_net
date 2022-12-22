@@ -16,16 +16,32 @@
 
 package com.android.net.module.util;
 
+import static android.system.OsConstants.EPERM;
+import static android.system.OsConstants.R_OK;
+
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doThrow;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
+import android.system.ErrnoException;
+import android.system.Os;
 import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.testutils.TestBpfMap;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.MockitoSession;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
@@ -78,5 +94,70 @@ public class BpfDumpTest {
                 INVALID_BASE64_STRING + BASE64_DELIMITER + INVALID_BASE64_STRING);
         assertThrowsIllegalArgumentException(
                 TEST_KEY_VAL_BASE64 + BASE64_DELIMITER + TEST_KEY_BASE64);
+    }
+
+    private String getDumpMap(final IBpfMap<Struct.U32, Struct.U32> map) {
+        final StringWriter sw = new StringWriter();
+        BpfDump.dumpMap(map, new PrintWriter(sw), "mapName", "header",
+                (key, val) -> "key=" + key.val + ", val=" + val.val);
+        return sw.toString();
+    }
+
+    @Test
+    public void testDumpMap() throws Exception {
+        final IBpfMap<Struct.U32, Struct.U32> map =
+                new TestBpfMap<>(Struct.U32.class, Struct.U32.class);
+        map.updateEntry(new Struct.U32(123), new Struct.U32(456));
+
+        final String dump = getDumpMap(map);
+        assertEquals(dump, "mapName:\n"
+                + "  header\n"
+                + "  key=123, val=456\n");
+    }
+
+    @Test
+    public void testDumpMapMultipleEntries() throws Exception {
+        final IBpfMap<Struct.U32, Struct.U32> map =
+                new TestBpfMap<>(Struct.U32.class, Struct.U32.class);
+        map.updateEntry(new Struct.U32(123), new Struct.U32(456));
+        map.updateEntry(new Struct.U32(789), new Struct.U32(123));
+
+        final String dump = getDumpMap(map);
+        assertTrue(dump.contains("mapName:"));
+        assertTrue(dump.contains("header"));
+        assertTrue(dump.contains("key=123, val=456"));
+        assertTrue(dump.contains("key=789, val=123"));
+    }
+
+    private String getDumpMapStatus(final IBpfMap<Struct.U32, Struct.U32> map) {
+        final StringWriter sw = new StringWriter();
+        BpfDump.dumpMapStatus(map, new PrintWriter(sw), "mapName", "mapPath");
+        return sw.toString();
+    }
+
+    @Test
+    public void testGetMapStatus() {
+        final IBpfMap<Struct.U32, Struct.U32> map =
+                new TestBpfMap<>(Struct.U32.class, Struct.U32.class);
+        assertEquals("mapName: OK\n", getDumpMapStatus(map));
+    }
+
+    @Test
+    public void testGetMapStatusNull() {
+        final MockitoSession session = mockitoSession()
+                .spyStatic(Os.class)
+                .startMocking();
+        try {
+            // Os.access succeeds
+            doReturn(true).when(() -> Os.access("mapPath", R_OK));
+            assertEquals("mapName: NULL(map is pinned to mapPath)\n", getDumpMapStatus(null));
+
+            // Os.access throws EPERM
+            doThrow(new ErrnoException("", EPERM)).when(() -> Os.access("mapPath", R_OK));
+            assertEquals("mapName: NULL(map is not pinned to mapPath: Operation not permitted)\n",
+                    getDumpMapStatus(null));
+        } finally {
+            session.finishMocking();
+        }
     }
 }

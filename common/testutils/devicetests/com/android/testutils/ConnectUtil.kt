@@ -63,6 +63,7 @@ class ConnectUtil(private val context: Context) {
 
         try {
             val connInfo = wifiManager.connectionInfo
+            Log.d(TAG, "connInfo=" + connInfo)
             if (connInfo == null || connInfo.networkId == -1) {
                 clearWifiBlocklist()
                 val pfd = getInstrumentation().uiAutomation.executeShellCommand("svc wifi enable")
@@ -75,7 +76,7 @@ class ConnectUtil(private val context: Context) {
                     timeoutMs = WIFI_CONNECT_TIMEOUT_MS)
 
             assertNotNull(cb, "Could not connect to a wifi access point within " +
-                    "$WIFI_CONNECT_INTERVAL_MS ms. Check that the test device has a wifi network " +
+                    "$WIFI_CONNECT_TIMEOUT_MS ms. Check that the test device has a wifi network " +
                     "configured, and that the test access point is functioning properly.")
             return cb.network
         } finally {
