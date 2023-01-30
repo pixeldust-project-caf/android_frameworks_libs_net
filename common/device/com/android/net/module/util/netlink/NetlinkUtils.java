@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import static android.system.OsConstants.AF_NETLINK;
 import static android.system.OsConstants.EIO;
 import static android.system.OsConstants.EPROTO;
 import static android.system.OsConstants.ETIMEDOUT;
+import static android.system.OsConstants.NETLINK_INET_DIAG;
+import static android.system.OsConstants.SOCK_CLOEXEC;
 import static android.system.OsConstants.SOCK_DGRAM;
 import static android.system.OsConstants.SOL_SOCKET;
 import static android.system.OsConstants.SO_RCVBUF;
@@ -33,6 +35,8 @@ import android.system.Os;
 import android.system.StructTimeval;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -40,20 +44,41 @@ import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-
 /**
- * NetlinkSocket
- *
- * A small static class to assist with AF_NETLINK socket operations.
- *
+ * Utilities for netlink related class that may not be able to fit into a specific class.
  * @hide
  */
-public class NetlinkSocket {
-    private static final String TAG = "NetlinkSocket";
-    private static final long IO_TIMEOUT_MS = 300L;
+public class NetlinkUtils {
+    private static final String TAG = "NetlinkUtils";
+    /** Corresponds to enum from bionic/libc/include/netinet/tcp.h. */
+    private static final int TCP_ESTABLISHED = 1;
+    private static final int TCP_SYN_SENT = 2;
+    private static final int TCP_SYN_RECV = 3;
+
+    public static final int TCP_MONITOR_STATE_FILTER =
+            (1 << TCP_ESTABLISHED) | (1 << TCP_SYN_SENT) | (1 << TCP_SYN_RECV);
+
+    public static final int UNKNOWN_MARK = 0xffffffff;
+    public static final int NULL_MASK = 0;
+
+    // Initial mark value corresponds to the initValue in system/netd/include/Fwmark.h.
+    public static final int INIT_MARK_VALUE = 0;
+    // Corresponds to enum definition in bionic/libc/kernel/uapi/linux/inet_diag.h
+    public static final int INET_DIAG_INFO = 2;
+    public static final int INET_DIAG_MARK = 15;
+
+    public static final long IO_TIMEOUT_MS = 300L;
 
     public static final int DEFAULT_RECV_BUFSIZE = 8 * 1024;
     public static final int SOCKET_RECV_BUFSIZE = 64 * 1024;
+
+    /**
+     * Return whether the input ByteBuffer contains enough remaining bytes for
+     * {@code StructNlMsgHdr}.
+     */
+    public static boolean enoughBytesRemainForValidNlMsg(@NonNull final ByteBuffer bytes) {
+        return bytes.remaining() >= StructNlMsgHdr.STRUCT_SIZE;
+    }
 
     /**
      * Send one netlink message to kernel via netlink socket.
@@ -63,10 +88,10 @@ public class NetlinkSocket {
      */
     public static void sendOneShotKernelMessage(int nlProto, byte[] msg) throws ErrnoException {
         final String errPrefix = "Error in NetlinkSocket.sendOneShotKernelMessage";
-        final FileDescriptor fd = forProto(nlProto);
+        final FileDescriptor fd = netlinkSocketForProto(nlProto);
 
         try {
-            connectToKernel(fd);
+            connectSocketToNetlink(fd);
             sendMessage(fd, msg, 0, msg.length, IO_TIMEOUT_MS);
             final ByteBuffer bytes = recvMessage(fd, DEFAULT_RECV_BUFSIZE, IO_TIMEOUT_MS);
             // recvMessage() guaranteed to not return null if it did not throw.
@@ -112,20 +137,31 @@ public class NetlinkSocket {
      * Create netlink socket with the given netlink protocol type.
      *
      * @return fd the fileDescriptor of the socket.
-     * Throw ErrnoException if the exception is thrown.
+     * @throws ErrnoException if the FileDescriptor not connect to be created successfully
      */
-    public static FileDescriptor forProto(int nlProto) throws ErrnoException {
+    public static FileDescriptor netlinkSocketForProto(int nlProto) throws ErrnoException {
         final FileDescriptor fd = Os.socket(AF_NETLINK, SOCK_DGRAM, nlProto);
         Os.setsockoptInt(fd, SOL_SOCKET, SO_RCVBUF, SOCKET_RECV_BUFSIZE);
         return fd;
     }
 
     /**
-     * Connect to kernel via netlink socket.
-     *
-     * Throw ErrnoException, SocketException if the exception is thrown.
+     * Construct a netlink inet_diag socket.
      */
-    public static void connectToKernel(FileDescriptor fd) throws ErrnoException, SocketException {
+    public static FileDescriptor createNetLinkInetDiagSocket() throws ErrnoException {
+        return Os.socket(AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_INET_DIAG);
+    }
+
+    /**
+     * Connect the given file descriptor to the Netlink interface to the kernel.
+     *
+     * The fd must be a SOCK_DGRAM socket : create it with {@link #netlinkSocketForProto}
+     *
+     * @throws ErrnoException if the {@code fd} could not connect to kernel successfully
+     * @throws SocketException if there is an error accessing a socket.
+     */
+    public static void connectSocketToNetlink(FileDescriptor fd)
+            throws ErrnoException, SocketException {
         Os.connect(fd, makeNetlinkSocketAddress(0, 0));
     }
 
@@ -147,8 +183,8 @@ public class NetlinkSocket {
 
         Os.setsockoptTimeval(fd, SOL_SOCKET, SO_RCVTIMEO, StructTimeval.fromMillis(timeoutMs));
 
-        ByteBuffer byteBuffer = ByteBuffer.allocate(bufsize);
-        int length = Os.read(fd, byteBuffer);
+        final ByteBuffer byteBuffer = ByteBuffer.allocate(bufsize);
+        final int length = Os.read(fd, byteBuffer);
         if (length == bufsize) {
             Log.w(TAG, "maximum read");
         }
@@ -159,10 +195,10 @@ public class NetlinkSocket {
     }
 
     /**
-     * Send a message to a peer to which this socket has previously connected,
-     * waiting at most |timeoutMs| milliseconds for the send to complete.
+     * Send a message to a peer to which this socket has previously connected.
      *
-     * Multi-threaded calls with different timeouts will cause unexpected results.
+     * This waits at most |timeoutMs| milliseconds for the send to complete, will get the exception
+     * if it times out.
      */
     public static int sendMessage(
             FileDescriptor fd, byte[] bytes, int offset, int count, long timeoutMs)
@@ -171,4 +207,6 @@ public class NetlinkSocket {
         Os.setsockoptTimeval(fd, SOL_SOCKET, SO_SNDTIMEO, StructTimeval.fromMillis(timeoutMs));
         return Os.write(fd, bytes, offset, count);
     }
+
+    private NetlinkUtils() {}
 }
