@@ -97,6 +97,8 @@ public final class NetworkStackConstants {
     public static final int IPV4_SRC_ADDR_OFFSET = 12;
     public static final int IPV4_DST_ADDR_OFFSET = 16;
     public static final int IPV4_ADDR_LEN = 4;
+    public static final int IPV4_FLAG_MF = 0x2000;
+    public static final int IPV4_FLAG_DF = 0x4000;
     public static final Inet4Address IPV4_ADDR_ALL = makeInet4Address(
             (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff);
     public static final Inet4Address IPV4_ADDR_ANY = makeInet4Address(
@@ -206,6 +208,17 @@ public final class NetworkStackConstants {
      */
     public static final int INFINITE_LEASE = 0xffffffff;
     public static final int DHCP4_CLIENT_PORT = 68;
+
+    /**
+     * DHCPv6 constants.
+     *
+     * See also:
+     *     - https://datatracker.ietf.org/doc/html/rfc8415
+     */
+    public static final int DHCP6_CLIENT_PORT = 546;
+    public static final int DHCP6_SERVER_PORT = 547;
+    public static final Inet6Address ALL_DHCP_RELAY_AGENTS_AND_SERVERS =
+            (Inet6Address) InetAddresses.parseNumericAddress("ff02::1:2");
 
     /**
      * IEEE802.11 standard constants.
