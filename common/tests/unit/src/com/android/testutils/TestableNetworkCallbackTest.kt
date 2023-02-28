@@ -34,6 +34,7 @@ import com.android.testutils.RecorderCallback.CallbackEntry.Companion.NETWORK_CA
 import com.android.testutils.RecorderCallback.CallbackEntry.Companion.RESUMED
 import com.android.testutils.RecorderCallback.CallbackEntry.Companion.SUSPENDED
 import com.android.testutils.RecorderCallback.CallbackEntry.Companion.UNAVAILABLE
+import com.android.testutils.RecorderCallback.CallbackEntry.LinkPropertiesChanged
 import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
@@ -140,20 +141,28 @@ class TestableNetworkCallbackTest {
         val meteredNc = NetworkCapabilities()
         val unmeteredNc = NetworkCapabilities().addCapability(NOT_METERED)
         // Check that expecting caps (with or without) fails when no callback has been received.
-        assertFails { mCallback.expectCapabilitiesWith(NOT_METERED, matcher, SHORT_TIMEOUT_MS) }
-        assertFails { mCallback.expectCapabilitiesWithout(NOT_METERED, matcher, SHORT_TIMEOUT_MS) }
+        assertFails {
+            mCallback.expectCaps(matcher, SHORT_TIMEOUT_MS) { it.hasCapability(NOT_METERED) }
+        }
+        assertFails {
+            mCallback.expectCaps(matcher, SHORT_TIMEOUT_MS) { !it.hasCapability(NOT_METERED) }
+        }
 
         // Add NOT_METERED and check that With succeeds and Without fails.
         mCallback.onCapabilitiesChanged(net, unmeteredNc)
-        mCallback.expectCapabilitiesWith(NOT_METERED, matcher)
+        mCallback.expectCaps(matcher) { it.hasCapability(NOT_METERED) }
         mCallback.onCapabilitiesChanged(net, unmeteredNc)
-        assertFails { mCallback.expectCapabilitiesWithout(NOT_METERED, matcher, SHORT_TIMEOUT_MS) }
+        assertFails {
+            mCallback.expectCaps(matcher, SHORT_TIMEOUT_MS) { !it.hasCapability(NOT_METERED) }
+        }
 
         // Don't add NOT_METERED and check that With fails and Without succeeds.
         mCallback.onCapabilitiesChanged(net, meteredNc)
-        assertFails { mCallback.expectCapabilitiesWith(NOT_METERED, matcher, SHORT_TIMEOUT_MS) }
+        assertFails {
+            mCallback.expectCaps(matcher, SHORT_TIMEOUT_MS) { it.hasCapability(NOT_METERED) }
+        }
         mCallback.onCapabilitiesChanged(net, meteredNc)
-        mCallback.expectCapabilitiesWithout(NOT_METERED, matcher)
+        mCallback.expectCaps(matcher) { !it.hasCapability(NOT_METERED) }
     }
 
     @Test
@@ -179,37 +188,35 @@ class TestableNetworkCallbackTest {
     }
 
     @Test
-    fun testCapabilitiesThat() {
+    fun testExpectCaps() {
         val net = Network(101)
         val netCaps = NetworkCapabilities().addCapability(NOT_METERED).addTransportType(WIFI)
         // Check that expecting capabilitiesThat anything fails when no callback has been received.
-        assertFails { mCallback.expectCapabilitiesThat(net, SHORT_TIMEOUT_MS) { true } }
+        assertFails { mCallback.expectCaps(net, SHORT_TIMEOUT_MS) { true } }
 
         // Basic test for true and false
         mCallback.onCapabilitiesChanged(net, netCaps)
-        mCallback.expectCapabilitiesThat(net) { true }
+        mCallback.expectCaps(net) { true }
         mCallback.onCapabilitiesChanged(net, netCaps)
-        assertFails { mCallback.expectCapabilitiesThat(net, SHORT_TIMEOUT_MS) { false } }
+        assertFails { mCallback.expectCaps(net, SHORT_TIMEOUT_MS) { false } }
 
         // Try a positive and a negative case
         mCallback.onCapabilitiesChanged(net, netCaps)
-        mCallback.expectCapabilitiesThat(net) { caps ->
-            caps.hasCapability(NOT_METERED) &&
-                    caps.hasTransport(WIFI) &&
-                    !caps.hasTransport(CELLULAR)
+        mCallback.expectCaps(net) {
+            it.hasCapability(NOT_METERED) && it.hasTransport(WIFI) && !it.hasTransport(CELLULAR)
         }
         mCallback.onCapabilitiesChanged(net, netCaps)
-        assertFails { mCallback.expectCapabilitiesThat(net, SHORT_TIMEOUT_MS) { caps ->
-            caps.hasTransport(CELLULAR)
-        } }
+        assertFails { mCallback.expectCaps(net, SHORT_TIMEOUT_MS) { it.hasTransport(CELLULAR) } }
 
         // Try a matching callback on the wrong network
         mCallback.onCapabilitiesChanged(net, netCaps)
-        assertFails { mCallback.expectCapabilitiesThat(Network(100), SHORT_TIMEOUT_MS) { true } }
+        assertFails {
+            mCallback.expectCaps(Network(100), SHORT_TIMEOUT_MS) { true }
+        }
     }
 
     @Test
-    fun testLinkPropertiesThat() {
+    fun testLinkPropertiesCallbacks() {
         val net = Network(112)
         val linkAddress = LinkAddress("fe80::ace:d00d/64")
         val mtu = 1984
@@ -220,30 +227,30 @@ class TestableNetworkCallbackTest {
         }
 
         // Check that expecting linkPropsThat anything fails when no callback has been received.
-        assertFails { mCallback.expectLinkPropertiesThat(net, SHORT_TIMEOUT_MS) { true } }
+        assertFails { mCallback.expect<LinkPropertiesChanged>(net, SHORT_TIMEOUT_MS) { true } }
 
         // Basic test for true and false
         mCallback.onLinkPropertiesChanged(net, linkProps)
-        mCallback.expectLinkPropertiesThat(net) { true }
+        mCallback.expect<LinkPropertiesChanged>(net) { true }
         mCallback.onLinkPropertiesChanged(net, linkProps)
-        assertFails { mCallback.expectLinkPropertiesThat(net, SHORT_TIMEOUT_MS) { false } }
+        assertFails { mCallback.expect<LinkPropertiesChanged>(net, SHORT_TIMEOUT_MS) { false } }
 
         // Try a positive and negative case
         mCallback.onLinkPropertiesChanged(net, linkProps)
-        mCallback.expectLinkPropertiesThat(net) { lp ->
-            lp.interfaceName == TEST_INTERFACE_NAME &&
-                    lp.linkAddresses.contains(linkAddress) &&
-                    lp.mtu == mtu
+        mCallback.expect<LinkPropertiesChanged>(net) {
+            it.lp.interfaceName == TEST_INTERFACE_NAME &&
+                    it.lp.linkAddresses.contains(linkAddress) &&
+                    it.lp.mtu == mtu
         }
         mCallback.onLinkPropertiesChanged(net, linkProps)
-        assertFails { mCallback.expectLinkPropertiesThat(net, SHORT_TIMEOUT_MS) { lp ->
-            lp.interfaceName != TEST_INTERFACE_NAME
+        assertFails { mCallback.expect<LinkPropertiesChanged>(net, SHORT_TIMEOUT_MS) {
+            it.lp.interfaceName != TEST_INTERFACE_NAME
         } }
 
         // Try a matching callback on the wrong network
         mCallback.onLinkPropertiesChanged(net, linkProps)
-        assertFails { mCallback.expectLinkPropertiesThat(Network(114), SHORT_TIMEOUT_MS) { lp ->
-            lp.interfaceName == TEST_INTERFACE_NAME
+        assertFails { mCallback.expect<LinkPropertiesChanged>(Network(114), SHORT_TIMEOUT_MS) {
+            it.lp.interfaceName == TEST_INTERFACE_NAME
         } }
     }
 
