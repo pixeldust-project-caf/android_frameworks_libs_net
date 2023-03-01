@@ -40,6 +40,7 @@ java_library {
       "device/com/android/net/module/util/NetworkMonitorUtils.java",
       "device/com/android/net/module/util/PacketReader.java",
       "device/com/android/net/module/util/SharedLog.java",
+      "device/com/android/net/module/util/SocketUtils.java",
       // This library is used by system modules, for which the system health impact of Kotlin
       // has not yet been evaluated. Annotations may need jarjar'ing.
       // "src_devicecommon/**/*.kt",
@@ -299,6 +300,30 @@ java_library {
         "//packages/modules/Connectivity/tests:__subpackages__",
         "//packages/modules/Bluetooth/android/app",
         "//packages/modules/Wifi/service:__subpackages__",
+    ],
+    lint: { strict_updatability_linting: true },
+}
+
+java_library {
+    name: "net-utils-device-common-async",
+    srcs: [
+        "device/com/android/net/module/util/async/*.java",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "29",
+    visibility: [
+        "//frameworks/libs/net/common/tests:__subpackages__",
+        "//frameworks/libs/net/common/testutils:__subpackages__",
+        "//packages/modules/Connectivity:__subpackages__",
+    ],
+    libs: [
+        "framework-annotations-lib",
+    ],
+    static_libs: [
+    ],
+    apex_available: [
+        "com.android.tethering",
+        "//apex_available:platform",
     ],
     lint: { strict_updatability_linting: true },
 }

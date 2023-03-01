@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <errno.h>
 #include <linux/if_ether.h>
 #include <linux/pfkeyv2.h>
 #include <net/if.h>
@@ -25,20 +26,12 @@
 #include <sys/socket.h>
 #include <sys/utsname.h>
 
-#include <string>
-
-#include <android-base/unique_fd.h>
 #include <log/log.h>
 
-#include "BpfSyscallWrappers.h"
-
-// The buffer size for the buffer that records program loading logs, needs to be large enough for
-// the largest kernel program.
+#include "KernelVersion.h"
 
 namespace android {
 namespace bpf {
-
-constexpr const int OVERFLOW_COUNTERSET = 2;
 
 constexpr const uint64_t NONEXISTENT_COOKIE = 0;
 
@@ -92,45 +85,6 @@ static inline int setrlimitForTest() {
     }
     return res;
 }
-
-#define KVER(a, b, c) (((a) << 24) + ((b) << 16) + (c))
-
-static inline unsigned uncachedKernelVersion() {
-    struct utsname buf;
-    if (uname(&buf)) return 0;
-
-    unsigned kver_major = 0;
-    unsigned kver_minor = 0;
-    unsigned kver_sub = 0;
-    (void)sscanf(buf.release, "%u.%u.%u", &kver_major, &kver_minor, &kver_sub);
-    return KVER(kver_major, kver_minor, kver_sub);
-}
-
-static inline unsigned kernelVersion() {
-    static unsigned kver = uncachedKernelVersion();
-    return kver;
-}
-
-static inline bool isAtLeastKernelVersion(unsigned major, unsigned minor, unsigned sub) {
-    return kernelVersion() >= KVER(major, minor, sub);
-}
-
-#define SKIP_IF_BPF_NOT_SUPPORTED                           \
-    do {                                                    \
-        if (!android::bpf::isAtLeastKernelVersion(4, 9, 0)) \
-            GTEST_SKIP() << "Skip: bpf is not supported.";  \
-    } while (0)
-
-// Only used by tm-mainline-prod's system/netd/tests/bpf_base_test.cpp
-// but platform and platform tests aren't expected to build/work in tm-mainline-prod
-// so we can just trivialize this
-#define SKIP_IF_EXTENDED_BPF_NOT_SUPPORTED
-
-#define SKIP_IF_XDP_NOT_SUPPORTED                           \
-    do {                                                    \
-        if (!android::bpf::isAtLeastKernelVersion(5, 9, 0)) \
-            GTEST_SKIP() << "Skip: xdp not supported.";     \
-    } while (0)
 
 }  // namespace bpf
 }  // namespace android

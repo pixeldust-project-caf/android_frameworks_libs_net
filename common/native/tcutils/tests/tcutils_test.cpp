@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 
-#include "kernelversion.h"
+#include "bpf/KernelVersion.h"
 #include <tcutils/tcutils.h>
 
 #include <BpfSyscallWrappers.h>
@@ -79,10 +79,10 @@ TEST(LibTcUtilsTest, AttachReplaceDetachClsactLo) {
 }
 
 TEST(LibTcUtilsTest, AddAndDeleteBpfFilter) {
-  // TODO: this should use bpf_shared.h rather than hardcoding the path
+  // TODO: this should likely be in the tethering module, where using netd.h would be ok
   static constexpr char bpfProgPath[] =
       "/sys/fs/bpf/tethering/prog_offload_schedcls_tether_downstream6_ether";
-  const int errNOENT = isAtLeastKernelVersion(4, 19, 0) ? ENOENT : EINVAL;
+  const int errNOENT = bpf::isAtLeastKernelVersion(4, 19, 0) ? ENOENT : EINVAL;
 
   // static test values
   static constexpr bool ingress = true;
@@ -111,14 +111,14 @@ TEST(LibTcUtilsTest, AddAndDeleteBpfFilter) {
 }
 
 TEST(LibTcUtilsTest, AddAndDeleteIngressPoliceFilter) {
-  // TODO: this should use bpf_shared.h rather than hardcoding the path
+  // TODO: this should likely be in the tethering module, where using netd.h would be ok
   static constexpr char bpfProgPath[] =
       "/sys/fs/bpf/netd_shared/prog_netd_schedact_ingress_account";
   int fd = bpf::retrieveProgram(bpfProgPath);
   ASSERT_LE(3, fd);
   close(fd);
 
-  const int errNOENT = isAtLeastKernelVersion(4, 19, 0) ? ENOENT : EINVAL;
+  const int errNOENT = bpf::isAtLeastKernelVersion(4, 19, 0) ? ENOENT : EINVAL;
 
   // static test values
   static constexpr unsigned rateInBytesPerSec =

@@ -46,7 +46,7 @@ open class RecorderCallback private constructor(
     private val backingRecord: ArrayTrackRecord<CallbackEntry>
 ) : NetworkCallback() {
     public constructor() : this(ArrayTrackRecord())
-    protected constructor(src: RecorderCallback?): this(src?.backingRecord ?: ArrayTrackRecord())
+    protected constructor(src: RecorderCallback?) : this(src?.backingRecord ?: ArrayTrackRecord())
 
     private val TAG = this::class.simpleName
 
@@ -167,20 +167,43 @@ open class RecorderCallback private constructor(
 
 private const val DEFAULT_TIMEOUT = 30_000L // ms
 private const val DEFAULT_NO_CALLBACK_TIMEOUT = 200L // ms
+private val NOOP = Runnable {}
 
+/**
+ * See comments on the public constructor below for a description of the arguments.
+ */
 open class TestableNetworkCallback private constructor(
     src: TestableNetworkCallback?,
     val defaultTimeoutMs: Long = DEFAULT_TIMEOUT,
-    val defaultNoCallbackTimeoutMs: Long = DEFAULT_NO_CALLBACK_TIMEOUT
+    val defaultNoCallbackTimeoutMs: Long = DEFAULT_NO_CALLBACK_TIMEOUT,
+    val waiterFunc: Runnable = NOOP // "() -> Unit" would forbid calling with a void func from Java
 ) : RecorderCallback(src) {
+    /**
+     * Construct a testable network callback.
+     * @param timeoutMs the default timeout for expecting a callback. Default 30 seconds. This
+     *                  should be long in most cases, because the success case doesn't incur
+     *                  the wait.
+     * @param noCallbackTimeoutMs the timeout for expecting that no callback is received. Default
+     *                            200ms. Because the success case does incur the timeout, this
+     *                            should be short in most cases, but not so short as to frequently
+     *                            time out before an incorrect callback is received.
+     * @param waiterFunc a function to use before asserting no callback. For some specific tests,
+     *                   it is useful to run test-specific code before asserting no callback to
+     *                   increase the likelihood that a spurious callback is correctly detected.
+     *                   As an example, a unit test using mock loopers may want to use this to
+     *                   make sure the loopers are drained before asserting no callback, since
+     *                   one of them may cause a callback to be called. @see ConnectivityServiceTest
+     *                   for such an example.
+     */
     @JvmOverloads
     constructor(
         timeoutMs: Long = DEFAULT_TIMEOUT,
-        noCallbackTimeoutMs: Long = DEFAULT_NO_CALLBACK_TIMEOUT
-    ): this(null, timeoutMs, noCallbackTimeoutMs)
+        noCallbackTimeoutMs: Long = DEFAULT_NO_CALLBACK_TIMEOUT,
+        waiterFunc: Runnable = NOOP
+    ) : this(null, timeoutMs, noCallbackTimeoutMs, waiterFunc)
 
     fun createLinkedCopy() = TestableNetworkCallback(
-            this, defaultTimeoutMs, defaultNoCallbackTimeoutMs)
+            this, defaultTimeoutMs, defaultNoCallbackTimeoutMs, waiterFunc)
 
     // The last available network, or null if any network was lost since the last call to
     // onAvailable. TODO : fix this by fixing the tests that rely on this behavior
@@ -326,7 +349,7 @@ open class TestableNetworkCallback private constructor(
         timeoutMs: Long = defaultTimeoutMs,
         errorMsg: String? = null,
         test: (T) -> Boolean = { true }
-    ) = pollOrThrow(timeoutMs).also {
+    ) = pollOrThrow(timeoutMs, "Did not receive ${T::class.simpleName} after ${timeoutMs}ms").also {
         if (it !is T) fail("Expected callback ${T::class.simpleName}, got $it")
         if (ANY_NETWORK !== network && it.network != network) {
             fail("Expected network $network for callback : $it")
@@ -343,24 +366,17 @@ open class TestableNetworkCallback private constructor(
         test: (T) -> Boolean = { true }
     ) = expect(network.network, timeoutMs, errorMsg, test)
 
-    // Make open for use in ConnectivityServiceTest which is the only one knowing its handlers.
-    // TODO : remove the necessity to overload this, remove the open qualifier, and give a
-    // default argument to assertNoCallback instead, possibly with @JvmOverloads if necessary.
-    open fun assertNoCallback() = assertNoCallback(defaultNoCallbackTimeoutMs)
-
-    fun assertNoCallback(timeoutMs: Long) {
-        val cb = history.poll(timeoutMs)
-        if (null != cb) fail("Expected no callback but got $cb")
-    }
-
-    fun assertNoCallbackThat(
+    @JvmOverloads
+    fun assertNoCallback(
         timeoutMs: Long = defaultNoCallbackTimeoutMs,
-        valid: (CallbackEntry) -> Boolean
+        valid: (CallbackEntry) -> Boolean = { true }
     ) {
-        val cb = history.poll(timeoutMs) { valid(it) }.let {
-            if (null != it) fail("Expected no callback but got $it")
-        }
+        waiterFunc.run()
+        history.poll(timeoutMs) { valid(it) }?.let { fail("Expected no callback but got $it") }
     }
+
+    fun assertNoCallback(valid: (CallbackEntry) -> Boolean) =
+            assertNoCallback(defaultNoCallbackTimeoutMs, valid)
 
     // Expects a callback of the specified type matching the predicate within the timeout.
     // Any callback that doesn't match the predicate will be skipped. Fails only if
@@ -373,6 +389,7 @@ open class TestableNetworkCallback private constructor(
         assertNotNull(it, "Callback ${T::class} not received within ${timeoutMs}ms")
     } as T
 
+    @JvmOverloads
     fun <T : CallbackEntry> eventuallyExpect(
         type: KClass<T>,
         timeoutMs: Long = defaultTimeoutMs,
@@ -422,6 +439,7 @@ open class TestableNetworkCallback private constructor(
     // @param validated the expected value of the VALIDATED capability in the
     //        onCapabilitiesChanged callback.
     // @param tmt how long to wait for the callbacks.
+    @JvmOverloads
     fun expectAvailableCallbacks(
         net: Network,
         suspended: Boolean = false,
