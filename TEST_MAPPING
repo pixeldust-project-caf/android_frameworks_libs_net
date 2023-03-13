@@ -1,4 +1,9 @@
 {
+  "presubmit": [
+    {
+      "name": "netdutils_test"
+    }
+  ],
   "imports": [
     {
       "path": "frameworks/base/core/java/android/net"
