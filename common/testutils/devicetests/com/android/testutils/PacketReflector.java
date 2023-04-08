@@ -20,46 +20,70 @@ import static android.system.OsConstants.ICMP6_ECHO_REPLY;
 import static android.system.OsConstants.ICMP6_ECHO_REQUEST;
 
 import android.annotation.NonNull;
+import android.net.TestNetworkInterface;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.util.Objects;
 
+/**
+ * A class that echoes packets received on a {@link TestNetworkInterface} back to itself.
+ *
+ * For testing purposes, sometimes a mocked environment to simulate a simple echo from the
+ * server side is needed. This is particularly useful if the test, e.g. VpnTest, is
+ * heavily relying on the outside world.
+ *
+ * This class reads packets from the {@link FileDescriptor} of a {@link TestNetworkInterface}, and:
+ *   1. For TCP and UDP packets, simply swaps the source address and the destination
+ *      address, then send it back to the {@link FileDescriptor}.
+ *   2. For ICMP ping packets, composes a ping reply and sends it back to the sender.
+ *   3. Ignore all other packets.
+ */
 public class PacketReflector extends Thread {
 
-    private static final int IPV4_HEADER_LENGTH = 20;
-    private static final int IPV6_HEADER_LENGTH = 40;
+    static final int IPV4_HEADER_LENGTH = 20;
+    static final int IPV6_HEADER_LENGTH = 40;
 
-    private static final int IPV4_ADDR_OFFSET = 12;
-    private static final int IPV6_ADDR_OFFSET = 8;
-    private static final int IPV4_ADDR_LENGTH = 4;
-    private static final int IPV6_ADDR_LENGTH = 16;
+    static final int IPV4_ADDR_OFFSET = 12;
+    static final int IPV6_ADDR_OFFSET = 8;
+    static final int IPV4_ADDR_LENGTH = 4;
+    static final int IPV6_ADDR_LENGTH = 16;
 
-    private static final int IPV4_PROTO_OFFSET = 9;
-    private static final int IPV6_PROTO_OFFSET = 6;
+    static final int IPV4_PROTO_OFFSET = 9;
+    static final int IPV6_PROTO_OFFSET = 6;
 
-    private static final byte IPPROTO_ICMP = 1;
-    private static final byte IPPROTO_TCP = 6;
-    private static final byte IPPROTO_UDP = 17;
+    static final byte IPPROTO_ICMP = 1;
+    static final byte IPPROTO_TCP = 6;
+    static final byte IPPROTO_UDP = 17;
     private static final byte IPPROTO_ICMPV6 = 58;
 
     private static final int ICMP_HEADER_LENGTH = 8;
-    private static final int TCP_HEADER_LENGTH = 20;
-    private static final int UDP_HEADER_LENGTH = 8;
+    static final int TCP_HEADER_LENGTH = 20;
+    static final int UDP_HEADER_LENGTH = 8;
 
     private static final byte ICMP_ECHO = 8;
     private static final byte ICMP_ECHOREPLY = 0;
 
     private static String TAG = "PacketReflector";
 
-    @NonNull private FileDescriptor mFd;
-    @NonNull private byte[] mBuf;
+    @NonNull
+    private final FileDescriptor mFd;
+    @NonNull
+    private final byte[] mBuf;
 
+    /**
+     * Construct a {@link PacketReflector} from the given {@code fd} of
+     * a {@link TestNetworkInterface}.
+     *
+     * @param fd {@link FileDescriptor} to read/write packets.
+     * @param mtu MTU of the test network.
+     */
     public PacketReflector(@NonNull FileDescriptor fd, int mtu) {
         super("PacketReflector");
-        mFd = fd;
+        mFd = Objects.requireNonNull(fd);
         mBuf = new byte[mtu];
     }
 
@@ -140,7 +164,7 @@ public class PacketReflector extends Thread {
         writePacket(buf, len);
 
         // The device should have replied, and buf should now contain a ping response.
-        int received = readPacket(buf);
+        int received = PacketReflectorUtil.readPacket(mFd, buf);
         if (received != len) {
             Log.i(TAG, "Reflecting ping did not result in ping response: " +
                     "read=" + received + " expected=" + len);
@@ -190,21 +214,11 @@ public class PacketReflector extends Thread {
         }
     }
 
-    private int readPacket(@NonNull byte[] buf) {
-        int len;
-        try {
-            len = Os.read(mFd, buf, 0, buf.length);
-        } catch (ErrnoException | IOException e) {
-            Log.e(TAG, "Error reading packet: " + e.getMessage());
-            len = -1;
-        }
-        return len;
-    }
-
     // Reads one packet from our mFd, and possibly writes the packet back.
     private void processPacket() {
-        int len = readPacket(mBuf);
+        int len = PacketReflectorUtil.readPacket(mFd, mBuf);
         if (len < 1) {
+            // Usually happens when socket read is being interrupted, e.g. stopping PacketReflector.
             return;
         }
 
@@ -217,11 +231,11 @@ public class PacketReflector extends Thread {
             hdrLen = IPV6_HEADER_LENGTH;
             protoPos = IPV6_PROTO_OFFSET;
         } else {
-            return;
+            throw new IllegalStateException("Unexpected version: " + version);
         }
 
         if (len < hdrLen) {
-            return;
+            throw new IllegalStateException("Unexpected buffer length: " + len);
         }
 
         byte proto = mBuf[protoPos];
@@ -241,10 +255,10 @@ public class PacketReflector extends Thread {
     }
 
     public void run() {
-        Log.i(TAG, "PacketReflector starting fd=" + mFd + " valid=" + mFd.valid());
+        Log.i(TAG, "starting fd=" + mFd + " valid=" + mFd.valid());
         while (!interrupted() && mFd.valid()) {
             processPacket();
         }
-        Log.i(TAG, "PacketReflector exiting fd=" + mFd + " valid=" + mFd.valid());
+        Log.i(TAG, "exiting fd=" + mFd + " valid=" + mFd.valid());
     }
 }
